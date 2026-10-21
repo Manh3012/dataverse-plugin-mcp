@@ -1,0 +1,12 @@
+{
+  "name": "dataverse-plugin-mcp",
+  "description": "Dataverse plug-in development tools for Claude Code",
+  "owner": { "name": "Manh3012", "url": "https://github.com/Manh3012" },
+  "plugins": [
+    {
+      "name": "dataverse-plugin-tools",
+      "source": "./",
+      "description": "Register, profile, replay and step-debug Dataverse plug-ins: MCP server plus skills for registering, troubleshooting, Custom APIs, webhooks and debugging."
+    }
+  ]
+}
