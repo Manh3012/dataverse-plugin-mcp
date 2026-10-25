@@ -22,7 +22,7 @@ Write-Host @'
 Installed. Before the first use:
 - Environment: ask Claude to select a Dataverse environment; it signs you in through the browser and shows you a picker.
   Use a dev or sandbox environment: replays write to it.
-- Plugin Registration Tool folder: optional; empty uses the PRT package the build downloaded from NuGet.
+- No Plugin Registration Tool installation or folder setting is needed; the build publishes the SDK dependencies from NuGet.
 - debug_profile also needs Visual Studio running with the plug-in's solution open.
 Then start a new Claude Code session.
 '@

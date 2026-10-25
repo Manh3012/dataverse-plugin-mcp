@@ -6,7 +6,7 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 // Read-only access to captures made by PRT's trace-log profiler (PRT 9.1.0.184+; started and stopped by start_profiling / stop_profiling in PluginTools.ProfilerControl.cs or PRT).
-// A capture is plugintracelog.profile: bare base64 of the protobuf plug-in context (observed), decoded by PRT's public PluginExecutionContextWrapper
+// A capture is plugintracelog.profile: bare base64 of the protobuf plug-in context (observed), decoded independently
 // in ProfilerHelper. Replayed by debug_profile (PluginTools.Debug.cs).
 public static partial class PluginTools
 {
@@ -20,7 +20,7 @@ public static partial class PluginTools
         [Description("Maximum captures (1-100)")] int top = 20) => Run(() =>
     {
         var svc = dv.Client;
-        // The step itself is flagged. enablepluginprofiler is documented; that it turns on profiling was observed.
+        // The step itself is flagged. enablepluginprofiler is documented; that it turns on profiling is Observed (RESEARCH.md).
         var flagged = StepQuery();
         flagged.Criteria.AddCondition("enablepluginprofiler", ConditionOperator.Equal, true);
         var profiledSteps = svc.RetrieveMultiple(flagged).Entities.Select(s => new
@@ -68,7 +68,7 @@ public static partial class PluginTools
     });
 
     [McpServerTool(Name = "get_profile", ReadOnly = true)]
-    [Description("Decode one trace-log profiler capture with PRT's own PluginExecutionContextWrapper (needs PRT in PRT_DIRECTORY and ProfilerHelper next to this server): " +
+    [Description("Decode one trace-log profiler capture independently (needs ProfilerHelper published next to this server): " +
         "the execution context (message, stage, depth, users, InputParameters/OutputParameters, Pre/PostEntityImages, SharedVariables, parent context). " +
         "Pass profileId (a TraceLogProfiles id from list_profiles) or filePath (a saved trace-log profile: the bare base64 of plugintracelog.profile). " +
         "Captures contain real record data. Strings over 4000 characters are truncated. For breakpoints, replay the same capture with debug_profile.")]
@@ -88,12 +88,18 @@ public static partial class PluginTools
 
     static (string Text, string Source) LoadCapture(Dataverse dv, string? profileId, string? filePath)
     {
-        if (filePath == null) return FetchProfile(dv.Client, Guid.Parse(profileId!));
+        var capture = filePath == null
+            ? FetchProfile(dv.Client, Guid.Parse(profileId!))
+            : ReadProfileFile(filePath);
+        // Structural validation is independent of PRT. It rejects malformed wire data before decoding.
+        ProtobufCaptureVerifier.Verify(capture.Text);
+        return capture;
+    }
+
+    static (string Text, string Source) ReadProfileFile(string filePath)
+    {
         if (!File.Exists(filePath)) throw new McpException($"File not found: {filePath}");
         var text = File.ReadAllText(filePath).Trim();
-        // Checked here so a wrong file fails clearly even without PRT on the machine.
-        if (!Convert.TryFromBase64String(text, new byte[text.Length], out _))
-            throw new McpException($"Not a trace-log profile: expected the bare base64 of plugintracelog.profile.");
         return (text, filePath);
     }
 
@@ -105,7 +111,7 @@ public static partial class PluginTools
         return (trace.GetAttributeValue<string>("profile") ?? throw new McpException($"Trace log {id} has no profile. Only runs of a step flagged enablepluginprofiler (PRT's trace-log profiler) write one."), $"plugintracelog {id}");
     }
 
-    // PRT's own PluginExecutionContextWrapper (via ProfilerHelper) turns the protobuf into DataContract XML.
+    // ProfilerHelper turns the protobuf context into DataContract XML.
     static object? DecodeProtobufContext(string context)
     {
         try

@@ -13,7 +13,6 @@ using System.Threading;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
 using Microsoft.Xrm.Tooling.Connector;
-using PluginProfiler.Plugins.ServiceWrappers;
 
 // replay: our own host, not PRT's replay (whose code is non-public). It runs the user's plug-in in this process on a capture's context,
 // with a tracing service that collects output and an organization service that is a REAL connection: the plug-in's writes happen.
@@ -51,11 +50,11 @@ static partial class Program
 {
     static ReplayResult Replay(Request request)
     {
-        var context = new PluginExecutionContextWrapper(request.Context);
+        var context = ProfileContextDecoder.Decode(request.Context);
 
         var dll = Path.GetFullPath(request.DllPath ?? throw new ArgumentException("DllPath is required."));
         _pluginDirectory = Path.GetDirectoryName(dll);
-        // LoadFile, not LoadFrom: every reference then goes through AssemblyResolve, which hands out PRT's Microsoft.Xrm.Sdk.
+        // LoadFile, not LoadFrom: every reference binds to the helper's SDK or the plug-in's own dependencies.
         var plugins = Assembly.LoadFile(dll).GetExportedTypes().Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract).ToList();
         var type = plugins.FirstOrDefault(t => t.FullName == request.PluginType) ?? (request.PluginType == null && plugins.Count == 1 ? plugins[0] : null)
             ?? throw new InvalidOperationException($"Plug-in type '{request.PluginType}' not found in {dll}. IPlugin types there: {(plugins.Count == 0 ? "none" : string.Join(", ", plugins.Select(t => t.FullName)))}.");

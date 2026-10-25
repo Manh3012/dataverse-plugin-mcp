@@ -427,6 +427,7 @@ public static partial class PluginTools
 
     [McpServerTool(Name = "unregister", Destructive = true)]
     [Description("Delete a registration (PRT Unregister). kind: image | step (also deletes its images and secure config) | type (refused while steps use it) | assembly (refused while any of its types has steps; its types are deleted with it) | package (refused while any of its types has steps; its assemblies and types are deleted with it) | endpoint (service endpoint or webhook; refused while steps use it) | customapi (refused while steps are registered on its message; its parameters and properties are deleted with it) | customapiparameter | customapiresponse. " +
+        "The API's generated main-operation step is deleted with the API; only external steps block API deletion. " +
         "type / assembly / package are also refused while a Custom API uses one of their types as its main operation.")]
     public static string Unregister(Dataverse dv,
         [Description("image | step | type | assembly | package | endpoint | customapi | customapiparameter | customapiresponse")] string kind,
@@ -466,8 +467,15 @@ public static partial class PluginTools
                 svc.Delete("serviceendpoint", gid);
                 break;
             case "customapi":
-                if (svc.Retrieve("customapi", gid, new ColumnSet("sdkmessageid")).GetAttributeValue<EntityReference>("sdkmessageid") is { } msg)
-                    RefuseIfSteps(In(svc, StepQuery(), "sdkmessageid", [msg.Id]));
+                var api = svc.Retrieve("customapi", gid, new ColumnSet("sdkmessageid", "plugintypeid"));
+                if (api.GetAttributeValue<EntityReference>("sdkmessageid") is { } msg)
+                {
+                    var implementation = api.GetAttributeValue<EntityReference>("plugintypeid");
+                    // Dataverse owns the API's stage-30 implementation step and deletes it with the API.
+                    RefuseIfSteps(In(svc, StepQuery(), "sdkmessageid", [msg.Id]).Where(s =>
+                        implementation == null || s.GetAttributeValue<OptionSetValue>("stage").Value != 30 ||
+                        s.GetAttributeValue<EntityReference>("eventhandler")?.Id != implementation.Id).ToList());
+                }
                 svc.Delete("customapi", gid); // cascades to its parameters and properties
                 break;
             case "customapiparameter":
