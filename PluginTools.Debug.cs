@@ -17,7 +17,7 @@ public static partial class PluginTools
 
     [McpServerTool(Name = "debug_profile")]
     [Description("Replay a real trace-log profiler capture with breakpoints, without PRT: runs your local plug-in DLL on the captured execution context in a local .NET Framework host " +
-        "(ProfilerHelper, needs PRT in PRT_DIRECTORY for its SDK and context classes) and attaches the Visual Studio that has the plug-in's project open, so breakpoints hit. " +
+        "(ProfilerHelper, published with its SDK and connector) and attaches the Visual Studio that has the plug-in's project open, so breakpoints hit. " +
         "Build the plug-in with its PDB and open it in Visual Studio first. Pass profileId or filePath as for get_profile. " +
         "WRITES ARE REAL: every IOrganizationService call the plug-in makes (Create, Update, Delete, Execute...) goes to this server's Dataverse environment, as the captured user, outside any transaction. " +
         "Requires allowWrites=true. Returns the trace output, the plug-in's exception, the duration and the list of organization-service calls. " +
@@ -110,7 +110,7 @@ public static partial class PluginTools
         }
     });
 
-    static object StepState((string Exe, string PrtDirectory) helper, string action, int count, string[]? evaluate, int timeoutSeconds)
+    static object StepState(string helper, string action, int count, string[]? evaluate, int timeoutSeconds)
     {
         var run = _stepReplay!;
         JsonNode? state = null;

@@ -9,20 +9,10 @@
   "license": "MIT",
   "types": "./types/index.d.ts",
   "keywords": ["dataverse", "dynamics-365", "power-platform", "plugin", "debugging", "mcp"],
-  "userConfig": {
-    "prt_directory": {
-      "type": "directory",
-      "title": "Plugin Registration Tool folder (optional)",
-      "description": "The PRT tools folder that contains PluginProfiler.Plugins.dll. Empty: the PRT package the build downloads from NuGet. DLLs in this folder run with your Dataverse token: point only at a trusted PRT copy."
-    }
-  },
   "mcpServers": {
     "dataverse": {
       "command": "cmd",
-      "args": ["/d", "/c", "${CLAUDE_PLUGIN_ROOT}/scripts/start-server.cmd"],
-      "env": {
-        "PLUGIN_PRT_DIRECTORY": "${user_config.prt_directory}"
-      }
+      "args": ["/d", "/c", "${CLAUDE_PLUGIN_ROOT}/scripts/start-server.cmd"]
     }
   },
   "hooks": {

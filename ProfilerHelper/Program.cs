@@ -8,11 +8,10 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Xml;
 using Microsoft.Xrm.Tooling.Connector;
-using PluginProfiler.Plugins.ServiceWrappers;
 
-// Runs PRT's own code, loaded from the user's PRT folder:
+// Uses the Dataverse SDK and connector published alongside this helper:
 //   decode-context: a trace-log capture's protobuf execution context to DataContract XML,
-//   through PluginProfiler.Plugins' public PluginExecutionContextWrapper. No Dataverse connection.
+//   through ProfileContextDecoder. No Dataverse connection.
 //   replay: runs the user's plug-in on a capture's context in this process, after attaching Visual Studio to it (Replay.cs).
 //   debug: steps the Visual Studio that is debugging a replay and reads where it stopped (Debug.cs).
 // Usage: ProfilerHelper <command>, one JSON Request on stdin (the access token never goes on the command line),
@@ -22,7 +21,6 @@ using PluginProfiler.Plugins.ServiceWrappers;
 [DataContract]
 sealed class Request
 {
-    [DataMember] public string PrtDirectory = "";
     [DataMember] public string OrgUrl = "";
     [DataMember] public string AccessToken = "";
     [DataMember] public string Context = "";
@@ -67,14 +65,12 @@ static partial class Program
         {
             if (args.Length != 1 || args[0] is not ("decode-context" or "replay" or "debug")) throw new ArgumentException("Usage: ProfilerHelper decode-context|replay|debug < request.json");
             var request = (Request)new DataContractJsonSerializer(typeof(Request)).ReadObject(Console.OpenStandardInput());
-            if (!File.Exists(Path.Combine(request.PrtDirectory, "PluginProfiler.Plugins.dll")))
-                throw new FileNotFoundException($"PluginProfiler.Plugins.dll not found in PRT folder '{request.PrtDirectory}'.");
             AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
             {
                 var name = new AssemblyName(e.Name).Name;
-                // The SDK always comes from PRT, so a replayed plug-in binds to the same Microsoft.Xrm.Sdk as the context wrapper.
+                // The SDK always comes from this helper, so a replayed plug-in binds to the context's SDK.
                 // A plug-in's other references come from its own folder first.
-                var dirs = name.StartsWith("Microsoft.Xrm.Sdk") || name.StartsWith("Microsoft.Crm.Sdk") ? new[] { request.PrtDirectory } : new[] { _pluginDirectory, request.PrtDirectory };
+                var dirs = name.StartsWith("Microsoft.Xrm.Sdk") || name.StartsWith("Microsoft.Crm.Sdk") ? new[] { AppDomain.CurrentDomain.BaseDirectory } : new[] { _pluginDirectory, AppDomain.CurrentDomain.BaseDirectory };
                 var path = dirs.Where(d => d != null).Select(d => Path.Combine(d, name + ".dll")).FirstOrDefault(File.Exists);
                 return path != null ? Assembly.LoadFrom(path) : null;
             };
@@ -92,7 +88,7 @@ static partial class Program
         return response.Error == null ? 0 : 1;
     }
 
-    // NoInlining: PluginProfiler.Plugins must not load before AssemblyResolve is hooked.
+    // NoInlining: SDK assemblies must not load before AssemblyResolve is hooked.
     [MethodImpl(MethodImplOptions.NoInlining)]
     static void Execute(string command, Request request, Response response)
     {
@@ -100,8 +96,8 @@ static partial class Program
         {
             var xml = new StringBuilder();
             using (var writer = XmlWriter.Create(xml, new XmlWriterSettings { OmitXmlDeclaration = true }))
-                new DataContractSerializer(typeof(object), new[] { typeof(PluginExecutionContextWrapper) })
-                    .WriteObject(writer, new PluginExecutionContextWrapper(request.Context));
+                new DataContractSerializer(typeof(object), new[] { typeof(CapturedExecutionContext) })
+                    .WriteObject(writer, ProfileContextDecoder.Decode(request.Context));
             response.ContextXml = xml.ToString();
             return;
         }

@@ -1,25 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Out-of-process helper for get_profile's context decoding and debug_profile's replay. PRT's PluginExecutionContextWrapper and CrmServiceClient
-       target .NET Framework, which the net8 server cannot load. Every Microsoft DLL is referenced at compile time
-       only (Private=false) and loaded at runtime from the user's own PRT folder, so nothing from PRT is redistributed. -->
+  <!-- Keep the .NET Framework SDK/connector dependencies in the helper's own publish folder. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
-    <PrtVersion>9.1.0.235</PrtVersion>
-    <PrtToolsDir>$(NuGetPackageRoot)microsoft.crmsdk.xrmtooling.pluginregistrationtool\$(PrtVersion)\tools\</PrtToolsDir>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageDownload Include="Microsoft.CrmSdk.XrmTooling.PluginRegistrationTool" Version="[$(PrtVersion)]" />
+    <PackageReference Include="Microsoft.CrmSdk.CoreAssemblies" Version="9.0.2.56" />
+    <PackageReference Include="Microsoft.CrmSdk.XrmTooling.CoreAssembly" Version="9.1.1.65" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="PluginProfiler.Plugins" HintPath="$(PrtToolsDir)PluginProfiler.Plugins.dll" Private="false" />
-    <Reference Include="Microsoft.Xrm.Tooling.Connector" HintPath="$(PrtToolsDir)Microsoft.Xrm.Tooling.Connector.dll" Private="false" />
-    <Reference Include="Microsoft.Xrm.Sdk" HintPath="$(PrtToolsDir)Microsoft.Xrm.Sdk.dll" Private="false" />
   </ItemGroup>
 
 </Project>

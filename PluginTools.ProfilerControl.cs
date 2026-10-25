@@ -54,20 +54,16 @@ public static partial class PluginTools
         return new { StepId = gid, Stopped = true };
     });
 
-    static (string Exe, string PrtDirectory) ProfilerHelper()
+    static string ProfilerHelper()
     {
-        var prt = Environment.GetEnvironmentVariable("PRT_DIRECTORY");
-        if (string.IsNullOrWhiteSpace(prt) || !File.Exists(Path.Combine(prt, "PluginProfiler.Plugins.dll")))
-            throw new McpException("Set PRT_DIRECTORY to the Plugin Registration Tool folder that contains PluginProfiler.Plugins.dll " +
-                "(the tools folder of the Microsoft.CrmSdk.XrmTooling.PluginRegistrationTool NuGet package).");
-        // Own folder: next to the server, probing would load the server's net8 Microsoft.Xrm.Sdk.dll instead of PRT's.
+        // Own folder: next to the server, probing would load the server's net8 SDK instead of the helper's .NET Framework SDK.
         var exe = Path.Combine(AppContext.BaseDirectory, "ProfilerHelper", "ProfilerHelper.exe");
         if (!File.Exists(exe))
             throw new McpException($"{exe} not found. Build it: dotnet publish ProfilerHelper -c Release -o <server folder>/ProfilerHelper");
-        return (exe, prt);
+        return exe;
     }
 
-    static JsonElement RunHelper((string Exe, string PrtDirectory) helper, string command, Dictionary<string, object?> request, double timeoutMinutes = 3)
+    static JsonElement RunHelper(string helper, string command, Dictionary<string, object?> request, double timeoutMinutes = 3)
     {
         using var run = StartHelper(helper, command, request);
         if (!run.Process.WaitForExit(TimeSpan.FromMinutes(timeoutMinutes)))
@@ -79,10 +75,9 @@ public static partial class PluginTools
     }
 
     // stderr is collected line by line, so a running replay's live trace and service calls can be read before it ends (debug_step).
-    static HelperRun StartHelper((string Exe, string PrtDirectory) helper, string command, Dictionary<string, object?> request)
+    static HelperRun StartHelper(string helper, string command, Dictionary<string, object?> request)
     {
-        request["PrtDirectory"] = helper.PrtDirectory;
-        var p = Process.Start(new ProcessStartInfo(helper.Exe, command)
+        var p = Process.Start(new ProcessStartInfo(helper, command)
         {
             RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
             StandardInputEncoding = new UTF8Encoding(false), UseShellExecute = false, CreateNoWindow = true,
